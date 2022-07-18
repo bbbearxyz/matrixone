@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	DefaultRotateCheckerMaxSize = int(common.M) * 64
+	DefaultRotateCheckerMaxSize = int(common.M) * 2048
 )
 
 type MaxSizeRotateChecker struct {
