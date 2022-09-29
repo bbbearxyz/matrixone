@@ -5216,7 +5216,10 @@ simple_expr:
     {
         $$ = $1
     }
-
+|	timediff_expr
+    {
+ 	$$ = $1
+    }
 else_opt:
 	{
 		$$ = nil
@@ -5930,6 +5933,17 @@ interval_expr:
     {
  		name := tree.SetUnresolvedName("interval")
 		arg2 := tree.NewNumValWithType(constant.MakeString($3), $3, false, tree.P_char)
+        $$ = &tree.FuncExpr{
+            Func: tree.FuncName2ResolvableFunctionReference(name),
+            Exprs: tree.Exprs{$2, arg2},
+        }
+    }
+
+timediff_expr:
+    time_stamp_unit
+    {
+ 		name := tree.SetUnresolvedName("time_stamp_unit")
+		arg2 := tree.NewNumValWithType(constant.MakeString($1), $1, false, tree.P_char)
         $$ = &tree.FuncExpr{
             Func: tree.FuncName2ResolvableFunctionReference(name),
             Exprs: tree.Exprs{$2, arg2},

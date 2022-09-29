@@ -737,6 +737,8 @@ func bindFuncExprImplByPlanExpr(name string, args []*Expr) (*plan.Expr, error) {
 				},
 			},
 		}, nil
+	case "time_stamp_unit":
+
 	case "and", "or", "not", "xor":
 		// why not append cast function?
 		// for i := 0; i < len(args); i++ {
