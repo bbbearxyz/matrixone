@@ -104,6 +104,7 @@ func SchemaToDefs(schema *catalog.Schema) (defs []engine.TableDef, err error) {
 			indexDef.Names = append(indexDef.Names, indexInfo.Name)
 			indexDef.TableNames = append(indexDef.TableNames, indexInfo.TableName)
 			indexDef.Uniques = append(indexDef.Uniques, indexInfo.Unique)
+			indexDef.Fields = append(indexDef.Fields, indexInfo.Field)
 		}
 		defs = append(defs, indexDef)
 	}
@@ -220,6 +221,7 @@ func DefsToSchema(name string, defs []engine.TableDef) (schema *catalog.Schema, 
 					Name:      defVal.Names[i],
 					TableName: defVal.TableNames[i],
 					Unique:    defVal.Uniques[i],
+					Field:     defVal.Fields[i],
 				})
 			}
 

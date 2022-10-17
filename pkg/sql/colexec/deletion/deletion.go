@@ -99,16 +99,29 @@ func Call(_ int, proc *process.Process, arg any) (bool, error) {
 
 			tmpBat.Clean(proc.Mp())
 		}
-		for infoNum, info := range p.DeleteCtxs[i].ComputeIndexInfos {
-			rel := p.DeleteCtxs[i].ComputeIndexTables[infoNum]
-			oldBatch, rowNum := util.BuildUniqueKeyBatch(bat.Vecs[filterColIndex+1:filterColIndex+1+int32(len(p.DeleteCtxs[i].IndexAttrs))], p.DeleteCtxs[i].IndexAttrs, info.Cols, proc)
-			if rowNum != 0 {
-				err := rel.Delete(ctx, oldBatch, info.Attrs[0])
-				if err != nil {
-					return false, err
+		for infoNum, info := range p.DeleteCtxs[i].IndexTableInfos {
+			rel := p.DeleteCtxs[i].IndexTables[infoNum]
+			if info.Unique {
+				oldBatch, rowNum := util.BuildUniqueKeyBatch(bat.Vecs[filterColIndex+1:filterColIndex+1+int32(len(p.DeleteCtxs[i].IndexAttrs))], p.DeleteCtxs[i].IndexAttrs, info.Cols, proc)
+
+				// oldBatch, rowNum := util.BuildUniqueIndexBatch(bat.Vecs[filterColIndex+1:filterColIndex+1+int32(len(p.DeleteCtxs[i].IndexAttrs))], p.DeleteCtxs[i].IndexAttrs, info.Cols, proc)
+				if rowNum != 0 {
+					err := rel.Delete(ctx, oldBatch, info.ColNames[0])
+					if err != nil {
+						return false, err
+					}
 				}
+				oldBatch.Clean(proc.Mp())
+			} else {
+				oldBatch, rowNum := util.BuildSecondaryIndexBatch(bat.Vecs[filterColIndex+1:filterColIndex+1+int32(len(p.DeleteCtxs[i].IndexAttrs))], p.DeleteCtxs[i].IndexAttrs, info.Cols, proc)
+				if rowNum != 0 {
+					err := rel.Delete(ctx, oldBatch, info.ColNames[1])
+					if err != nil {
+						return false, err
+					}
+				}
+				oldBatch.Clean(proc.Mp())
 			}
-			oldBatch.Clean(proc.Mp())
 		}
 	}
 	atomic.AddUint64(&p.AffectedRows, affectedRows)

@@ -122,6 +122,7 @@ type ComputeIndexDef struct {
 	Names      []string
 	TableNames []string
 	Uniques    []bool
+	Fields     [][]string
 }
 
 type TableDef interface {

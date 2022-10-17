@@ -79,21 +79,32 @@ func Call(_ int, proc *process.Process, arg any) (bool, error) {
 
 		// in update, we can get a batch[b(update), b(old)]
 		// we should use old b as delete info
-		for i, info := range updateCtx.ComputeIndexInfos {
-			rel := updateCtx.ComputeIndexTables[i]
-			var attrs []string = nil
-			attrs = append(attrs, updateCtx.UpdateAttrs...)
-			attrs = append(attrs, updateCtx.OtherAttrs...)
-			attrs = append(attrs, updateCtx.IndexAttrs...)
-			oldBatch, rowNum := util.BuildUniqueKeyBatch(bat.Vecs[int(idx)+1:], attrs, info.Cols, proc)
-			if rowNum != 0 {
-				err := rel.Delete(ctx, oldBatch, info.Attrs[0])
-				if err != nil {
-					return false, err
-				}
-			}
-			oldBatch.Clean(proc.Mp())
-		}
+		//for i, info := range updateCtx.IndexTableInfos {
+		//	rel := updateCtx.IndexTables[i]
+		//	var attrs []string = nil
+		//	attrs = append(attrs, updateCtx.UpdateAttrs...)
+		//	attrs = append(attrs, updateCtx.OtherAttrs...)
+		//	attrs = append(attrs, updateCtx.IndexAttrs...)
+		//	if info.Unique {
+		//		oldBatch, rowNum := util.BuildUniqueIndexBatch(bat.Vecs[int(idx)+1:], attrs, info.Cols, proc)
+		//		if rowNum != 0 {
+		//			err := rel.Delete(ctx, oldBatch, info.ColNames[0])
+		//			if err != nil {
+		//				return false, err
+		//			}
+		//		}
+		//		oldBatch.Clean(proc.Mp())
+		//	} else {
+		//		oldBatch, rowNum := util.BuildUniqueIndexBatch(bat.Vecs[int(idx)+1:], attrs, info.Cols, proc)
+		//		if rowNum != 0 {
+		//			err := rel.Delete(ctx, oldBatch, info.ColNames[1])
+		//			if err != nil {
+		//				return false, err
+		//			}
+		//		}
+		//		oldBatch.Clean(proc.Mp())
+		//	}
+		//}
 
 		delBat := &batch.Batch{}
 		delBat.Vecs = []*vector.Vector{tmpBat.GetVector(0)}
@@ -144,16 +155,32 @@ func Call(_ int, proc *process.Process, arg any) (bool, error) {
 			}
 		}
 		tmpBat.SetZs(tmpBat.GetVector(0).Length(), proc.Mp())
-		for i, info := range updateCtx.ComputeIndexInfos {
-			rel := updateCtx.ComputeIndexTables[i]
-			b, rowNum := util.BuildUniqueKeyBatch(tmpBat.Vecs, tmpBat.Attrs, info.Cols, proc)
-			if rowNum != 0 {
-				err = rel.Write(ctx, b)
-				if err != nil {
-					return false, err
+		for i, info := range updateCtx.IndexTableInfos {
+			rel := updateCtx.IndexTables[i]
+			if info.Unique {
+				// b, rowNum := util.BuildUniqueIndexBatch(tmpBat.Vecs, tmpBat.Attrs, info.Cols, proc)
+				b, rowNum := util.BuildUniqueKeyBatch(tmpBat.Vecs, tmpBat.Attrs, info.Cols, proc)
+				s := vector.MustTCols[int32](b.Vecs[0])
+				for _, x := range s {
+					println("xxx", x)
 				}
+				if rowNum != 0 {
+					err = rel.Write(ctx, b)
+					if err != nil {
+						return false, err
+					}
+				}
+				b.Clean(proc.Mp())
+			} else {
+				b, rowNum := util.BuildSecondaryIndexBatch(tmpBat.Vecs, tmpBat.Attrs, info.Cols, proc)
+				if rowNum != 0 {
+					err = rel.Write(ctx, b)
+					if err != nil {
+						return false, err
+					}
+				}
+				b.Clean(proc.Mp())
 			}
-			b.Clean(proc.Mp())
 		}
 		err = updateCtx.TableSource.Write(ctx, tmpBat)
 		if err != nil {

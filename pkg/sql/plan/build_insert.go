@@ -183,19 +183,19 @@ func buildInsertValues(stmt *tree.Insert, ctx CompilerContext) (p *Plan, err err
 			}
 		}
 	}
-	computeIndexInfo := BuildComputeIndexInfos(ctx, dbName, tblRef.Defs)
+	indexTableInfos := BuildIndexTableInfos(ctx, dbName, tblRef.Defs)
 
 	return &Plan{
 		Plan: &plan.Plan_Ins{
 			Ins: &plan.InsertValues{
-				DbName:            dbName,
-				TblName:           tblName,
-				ExplicitCols:      explicitCols,
-				OtherCols:         otherCols,
-				OrderAttrs:        orderAttrs,
-				Columns:           columns,
-				CompositePkey:     tblRef.CompositePkey,
-				ComputeIndexInfos: computeIndexInfo,
+				DbName:          dbName,
+				TblName:         tblName,
+				ExplicitCols:    explicitCols,
+				OtherCols:       otherCols,
+				OrderAttrs:      orderAttrs,
+				Columns:         columns,
+				CompositePkey:   tblRef.CompositePkey,
+				IndexTableInfos: indexTableInfos,
 			},
 		},
 	}, nil
@@ -349,8 +349,8 @@ func getInsertTable(stmt tree.TableExpr, ctx CompilerContext) (*ObjectRef, *Tabl
 		if tableDef == nil {
 			return nil, nil, moerr.NewInvalidInput("insert target table '%s' does not exist", tblName)
 		}
-		computeIndexInfo := BuildComputeIndexInfos(ctx, objRef.DbName, tableDef.Defs)
-		tableDef.ComputeIndexInfos = computeIndexInfo
+		indexTableInfos := BuildIndexTableInfos(ctx, objRef.DbName, tableDef.Defs)
+		tableDef.IndexTableInfos = indexTableInfos
 		return objRef, tableDef, nil
 	case *tree.ParenTableExpr:
 		return getInsertTable(tbl.Expr, ctx)
@@ -365,26 +365,27 @@ func getInsertTable(stmt tree.TableExpr, ctx CompilerContext) (*ObjectRef, *Tabl
 	}
 }
 
-func BuildComputeIndexInfos(ctx CompilerContext, dbName string, defs []*plan.TableDef_DefType) []*plan.ComputeIndexInfo {
+func BuildIndexTableInfos(ctx CompilerContext, dbName string, defs []*plan.TableDef_DefType) []*plan.IndexTableInfo {
 	for _, def := range defs {
-		if computeIdxDef, ok := def.Def.(*plan.TableDef_DefType_ComputeIndex); ok {
-			infos := make([]*plan.ComputeIndexInfo, 0)
-			idx := computeIdxDef.ComputeIndex
+		if index, ok := def.Def.(*plan.TableDef_DefType_Index); ok {
+			infos := make([]*plan.IndexTableInfo, 0)
+			idx := index.Index
 
 			for i := range idx.Names {
 				_, tableDef := ctx.Resolve(dbName, idx.TableNames[i])
-				info := &plan.ComputeIndexInfo{
+				info := &plan.IndexTableInfo{
 					TableName: idx.TableNames[i],
 					Cols:      make([]*plan.ColDef, 0),
-					Attrs:     make([]string, 0),
+					ColNames:  make([]string, 0),
+					Unique:    idx.Uniques[i],
 				}
 				if tableDef.CompositePkey != nil {
 					info.Cols = append(info.Cols, tableDef.CompositePkey)
-					info.Attrs = append(info.Attrs, tableDef.CompositePkey.Name)
+					info.ColNames = append(info.ColNames, tableDef.CompositePkey.Name)
 				}
 				for _, col := range tableDef.Cols {
 					info.Cols = append(info.Cols, col)
-					info.Attrs = append(info.Attrs, col.Name)
+					info.ColNames = append(info.ColNames, col.Name)
 
 				}
 				infos = append(infos, info)

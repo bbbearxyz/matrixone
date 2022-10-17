@@ -72,8 +72,8 @@ func buildDeleteSingleTable(stmt *tree.Delete, ctx CompilerContext) (*Plan, erro
 		return nil, moerr.NewInvalidInput("cannot delete from view")
 	}
 
-	computeIndexInfos := BuildComputeIndexInfos(ctx, objRef.DbName, tableDef.Defs)
-	tableDef.ComputeIndexInfos = computeIndexInfos
+	indexTableInfos := BuildIndexTableInfos(ctx, objRef.DbName, tableDef.Defs)
+	tableDef.IndexTableInfos = indexTableInfos
 
 	// optimize to truncate,
 	if stmt.Where == nil && stmt.Limit == nil {
@@ -108,13 +108,13 @@ func buildDeleteSingleTable(stmt *tree.Delete, ctx CompilerContext) (*Plan, erro
 
 	// build delete node
 	d := &plan.DeleteTableCtx{
-		DbName:            objRef.SchemaName,
-		TblName:           tableDef.Name,
-		UseDeleteKey:      useKey.Name,
-		IsHideKey:         isHideKey,
-		CanTruncate:       false,
-		ComputeIndexInfos: tableDef.ComputeIndexInfos,
-		IndexAttrs:        attrs,
+		DbName:          objRef.SchemaName,
+		TblName:         tableDef.Name,
+		UseDeleteKey:    useKey.Name,
+		IsHideKey:       isHideKey,
+		CanTruncate:     false,
+		IndexTableInfos: tableDef.IndexTableInfos,
+		IndexAttrs:      attrs,
 	}
 	node := &Node{
 		NodeType:        plan.Node_DELETE,
@@ -133,10 +133,10 @@ func buildDeleteSingleTable(stmt *tree.Delete, ctx CompilerContext) (*Plan, erro
 func buildDelete2Truncate(objRef *ObjectRef, tblDef *TableDef) (*Plan, error) {
 	// build delete node
 	d := &plan.DeleteTableCtx{
-		DbName:            objRef.SchemaName,
-		TblName:           tblDef.Name,
-		CanTruncate:       true,
-		ComputeIndexInfos: tblDef.ComputeIndexInfos,
+		DbName:          objRef.SchemaName,
+		TblName:         tblDef.Name,
+		CanTruncate:     true,
+		IndexTableInfos: tblDef.IndexTableInfos,
 	}
 	node := &Node{
 		NodeType:        plan.Node_DELETE,
@@ -283,14 +283,16 @@ func buildUseProjection(stmt *tree.Delete, ps tree.SelectExprs, objRef *ObjectRe
 
 	// make true we can get all the index col data before update, so we can delete index info.
 	indexColNameMap := make(map[string]bool)
-	for _, info := range tableDef.ComputeIndexInfos {
-		if info.Cols[0].IsCPkey {
-			colNames := util.SplitCompositePrimaryKeyColumnName(info.Cols[0].Name)
-			for _, colName := range colNames {
-				indexColNameMap[colName] = true
+	for _, info := range tableDef.IndexTableInfos {
+		for _, c := range info.Cols {
+			if c.IsCPkey {
+				colNames := util.SplitCompositePrimaryKeyColumnName(c.Name)
+				for _, colName := range colNames {
+					indexColNameMap[colName] = true
+				}
+			} else {
+				indexColNameMap[c.Name] = true
 			}
-		} else {
-			indexColNameMap[info.Cols[0].Name] = true
 		}
 	}
 	indexAttrs := make([]string, 0)

@@ -32,16 +32,16 @@ import (
 )
 
 type Argument struct {
-	Ts                 uint64
-	TargetTable        engine.Relation
-	TargetColDefs      []*plan.ColDef
-	Affected           uint64
-	Engine             engine.Engine
-	DB                 engine.Database
-	TableID            string
-	CPkeyColDef        *plan.ColDef
-	ComputeIndexTables []engine.Relation
-	ComputeIndexInfos  []*plan.ComputeIndexInfo
+	Ts              uint64
+	TargetTable     engine.Relation
+	TargetColDefs   []*plan.ColDef
+	Affected        uint64
+	Engine          engine.Engine
+	DB              engine.Database
+	TableID         string
+	CPkeyColDef     *plan.ColDef
+	IndexTables     []engine.Relation
+	IndexTableInfos []*plan.IndexTableInfo
 }
 
 func String(_ any, buf *bytes.Buffer) {
@@ -57,15 +57,27 @@ func handleWrite(n *Argument, proc *process.Process, ctx context.Context, bat *b
 	if bat.Length() == 0 {
 		bat.SetZs(bat.GetVector(0).Length(), proc.Mp())
 	}
-	for idx, info := range n.ComputeIndexInfos {
-		b, rowNum := util.BuildUniqueKeyBatch(bat.Vecs, bat.Attrs, info.Cols, proc)
-		if rowNum != 0 {
-			err := n.ComputeIndexTables[idx].Write(ctx, b)
-			if err != nil {
-				return err
+	for idx, info := range n.IndexTableInfos {
+		if info.Unique {
+			// b, rowNum := util.BuildUniqueIndexBatch(bat.Vecs, bat.Attrs, info.Cols, proc)
+			b, rowNum := util.BuildUniqueKeyBatch(bat.Vecs, bat.Attrs, info.Cols, proc)
+			if rowNum != 0 {
+				err := n.IndexTables[idx].Write(ctx, b)
+				if err != nil {
+					return err
+				}
 			}
+			b.Clean(proc.Mp())
+		} else {
+			b, rowNum := util.BuildSecondaryIndexBatch(bat.Vecs, bat.Attrs, info.Cols, proc)
+			if rowNum != 0 {
+				err := n.IndexTables[idx].Write(ctx, b)
+				if err != nil {
+					return err
+				}
+			}
+			b.Clean(proc.Mp())
 		}
-		b.Clean(proc.Mp())
 	}
 	err := n.TargetTable.Write(ctx, bat)
 	n.Affected += uint64(len(bat.Zs))

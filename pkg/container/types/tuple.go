@@ -265,6 +265,10 @@ func (p *packer) encodeFloat64(d float64) {
 	p.putBytes(scratch[:])
 }
 
+func (p *packer) EncodeNil() {
+	p.putByte(nilCode)
+}
+
 func (p *packer) EncodeInt8(e int8) {
 	p.putByte(int8Code)
 	p.encodeInt(int64(e))
