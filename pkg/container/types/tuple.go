@@ -31,6 +31,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/matrixorigin/matrixone/pkg/common/mpool"
 	"math"
 
 	"github.com/matrixorigin/matrixone/pkg/common/moerr"
@@ -172,31 +173,46 @@ func adjustFloatBytes(b []byte, encode bool) {
 }
 
 type packer struct {
-	buf []byte
+	buf   []byte
+	begin int
+	size  int
+	mp    *mpool.MPool
 }
 
 func NewPacker() *packer {
 	return &packer{
-		buf: make([]byte, 0, 64),
+		buf: make([]byte, 64),
 	}
 }
 
-func NewPackerArray(size int) []*packer {
+func NewPackerArray(size int, mp *mpool.MPool) []*packer {
 	packerArr := make([]*packer, size)
 	for num := range packerArr {
+		b, _ := mp.Alloc(64)
 		packerArr[num] = &packer{
-			buf: make([]byte, 0, 64),
+			buf:   b,
+			begin: 0,
+			size:  1024,
+			mp:    mp,
 		}
 	}
 	return packerArr
 }
 
+func NewPackerArrayFree(arr []*packer) {
+	for i := range arr {
+		arr[i].mp.Free(arr[i].buf)
+	}
+}
+
 func (p *packer) putByte(b byte) {
-	p.buf = append(p.buf, b)
+	p.buf[p.begin] = b
+	p.begin++
 }
 
 func (p *packer) putBytes(b []byte) {
-	p.buf = append(p.buf, b...)
+	copy(p.buf[p.begin:], b)
+	p.begin += len(b)
 }
 
 func (p *packer) putBytesNil(b []byte, i int) {
@@ -241,13 +257,15 @@ func (p *packer) encodeInt(i int64) {
 	}
 
 	n := bisectLeft(uint64(-i))
-	var scratch [8]byte
+	scratch, _ := p.mp.Alloc(8)
+	// var scratch [8]byte
 
 	p.putByte(byte(intZeroCode - n))
 	offsetEncoded := int64(sizeLimits[n]) + i
 	binary.BigEndian.PutUint64(scratch[:], uint64(offsetEncoded))
 
 	p.putBytes(scratch[8-n:])
+	p.mp.Free(scratch)
 }
 
 func (p *packer) encodeFloat32(f float32) {
