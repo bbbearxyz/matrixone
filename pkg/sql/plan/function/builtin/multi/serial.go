@@ -204,6 +204,7 @@ func SerialWithSomeCols(vectors []*vector.Vector, proc *process.Process) (*vecto
 				}
 			}
 		}
+		break
 	}
 
 	for i := range ps {
