@@ -33,9 +33,9 @@ func Serial(vectors []*vector.Vector, proc *process.Process) (*vector.Vector, er
 
 func SerialWithSomeCols(vectors []*vector.Vector, proc *process.Process) (*vector.Vector, error) {
 	length := vector.Length(vectors[0])
-	vct := types.T_varchar.ToType()
-	nsp := new(nulls.Nulls)
-	val := make([][]byte, 0, length)
+	// vct := types.T_varchar.ToType()
+	// nsp := new(nulls.Nulls)
+	// val := make([][]byte, 0, length)
 	ps := types.NewPackerArray(length, proc.Mp())
 	bitMap := new(nulls.Nulls)
 
@@ -207,15 +207,15 @@ func SerialWithSomeCols(vectors []*vector.Vector, proc *process.Process) (*vecto
 		break
 	}
 
-	for i := range ps {
-		if !nulls.Contains(bitMap, uint64(i)) {
-			val = append(val, ps[i].GetBuf())
-		}
-	}
-
-	vec := vector.NewWithBytes(vct, val, nsp, proc.Mp())
+	//for i := range ps {
+	//	if !nulls.Contains(bitMap, uint64(i)) {
+	//		val = append(val, ps[i].GetBuf())
+	//	}
+	//}
+	//
+	//vec := vector.NewWithBytes(vct, val, nsp, proc.Mp())
 
 	types.NewPackerArrayFree(ps)
 
-	return vec, nil
+	return vectors[0], nil
 }

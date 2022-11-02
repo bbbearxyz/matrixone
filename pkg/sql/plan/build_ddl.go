@@ -396,7 +396,7 @@ func buildTableDefs(defs tree.TableDefs, ctx CompilerContext, createTable *plan.
 				Name: pkeyName,
 				Alg:  plan.CompressType_Lz4,
 				Typ: &Type{
-					Id:   int32(types.T_varchar),
+					Id:   int32(types.T_int64),
 					Size: types.VarlenaSize,
 				},
 				Default: &plan.Default{
