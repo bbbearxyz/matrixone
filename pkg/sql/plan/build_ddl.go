@@ -421,13 +421,6 @@ func buildTableDefs(defs tree.TableDefs, ctx CompilerContext, createTable *plan.
 					OriginString: "",
 				},
 			})
-			createTable.TableDef.Defs = append(createTable.TableDef.Defs, &plan.TableDef_DefType{
-				Def: &plan.TableDef_DefType_Pk{
-					Pk: &plan.PrimaryKeyDef{
-						Names: []string{pkeyName},
-					},
-				},
-			})
 		}
 	}
 
